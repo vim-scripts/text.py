@@ -1,0 +1,27 @@
+This is a mirror of http://www.vim.org/scripts/script.php?script_id=840
+
+This is text.py module for easy association of vim buffer to python language. Module provides Text-calss, which has access vim buffer contents, and has many of string, sequense and file-object methods. You may use slice, may use assignment to slice of buffer, and you can use step argument in this assignment in python 2.3 notation. You can use all of string methods like .upper(), .lower(), .center() etc. You can use many of sequence methods like .append(), .extend(), .reverse() etc. You can use a lot of binary operators like +=, *=; membership test "in" etc. Moreover, Text-instance provide some facilities to work with regular expressions including situations when text in buffer is in multibyte encoding. Searching takes place in unicode, but module provides some new match object: "NoUniMatchObj". This object has all of original match objects attributes but when you expect to get a string, you get a string not unicode. And when you expect to get address (byte-offset) you get address in encoded string too.
+
+Simple example:
+~~~~~~~~~~~~~~~
+import text
+t = text.Text()
+for i in t.re.finditer(my_regexp):    # search my_regexp in buffer
+    try:
+        t.replace_i(i.start(),            # interactive replace fragment of
+                    i.end(),              #   buffer from i.start() to i.end()
+                                          #   where i is an instance of
+                                          #   NoUniMatchObj
+                    ["replasement one",   # There are a lot of substitutions,
+                     my_function(i), ...])#   user can choose one of them.
+    except t.exceptions.CancelDialog:
+        pass                            # handler of Cancel button
+t.center(80)                            # centering contents of buffer
+t.apply_to_lines(my_other_function)     # apply my_other_function line by line 
+
+Another powerful example you can see in vimscript#841
+
+This utility very useful if you need to do python-substitution using confirmation dialogs, for example if you need to choose a lot of various replacements. This is useful too if you work with utf-8 encoding etc.
+
+Russian mirror: http://python.anabar.ru/emin.htm#textpy
+

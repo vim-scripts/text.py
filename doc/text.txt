@@ -1,0 +1,1233 @@
+*text.txt*	Python script text.py version 1.0.3
+		for easy access to vim objects
+
+================================================================================
+Viewing this file
+
+This file can be viewed with all the sections and subsections folded to ease
+navigation. By default, vim does not fold help documents. To create the folds,
+press za now. The folds are created via a foldexpr which can be seen in the
+last section of this file.
+
+See |usr_28.txt| for an introduction to folding and |fold-commands| for key
+sequences and commands to work with folds.
+
+================================================================================
+                                    Abstract                                    
+
+This is text.py module for easy associate vim buffer to python language.
+Module provide Text-calss, which has access vim buffer contains, and has many
+of string, sequense and file-object methods. You may use slice, may assignment
+to slice of buffer, and you can use step argument in this assignment in
+python 2.3 notation. You can use all of string methods like .|upper()|, .|lower()|,
+.|center()| etc. You can use many of sequence methods like .|append()|, .|extend()|,
+.|reverse()| etc. You can use a lot of binary operators like +=, *=; membership
+test "in" etc. Moreover, Text-instance provide some facilities to work with
+regular expressions including situations when text in buffer is in multibyte
+encoding. Searching take place in unicode, but module provide some new match
+object: "|NoUniMatchObj|". This object has any of original match objects
+attributes but when you expect to get a string, you get a string not unicode.
+And when you expect to get address (byte-offset) you get address in encoded
+string too.
+
+Simple example:
+~~~~~~~~~~~~~~~
+import text
+t = text.Text()
+for i in t.re.finditer(my_regexp):    # search my_regexp in buffer
+    try:
+        t.replace_i(i.|start()|,            # interactive replace fragment of
+                    i.|end()|,              #   buffer from i.|start()| to i.|end()|
+                                          #   where i is an instance of
+                                          #   |NoUniMatchObj|
+                    ["replasement one",   # There are a lot of substitutions,
+                     my_function(i), ...])#   user can choose one of them.
+    except t.exceptions.CancelDialog:
+        pass                            # handler of Cancel button
+t.center(80)                            # centering contents of buffer
+t.apply_to_lines(my_other_function)     # apply my_other_function line by line
+
+
+================================================================================
+Installation
+
+
+1) Make in your harddrive some directory for python-vim programs (let it name
+   is /pythonvim/). And put text.py into this directory.
+2) Instract python to use this directory like sourse of modules. One way to
+   do this is put following string into your .vimrc file:
+:py import sys; sys.path.insert(0, r"/pythonvim/")
+   NOTE: in some systems you must put absolute address into sys.path list.
+   NOTE: be careful about slash direction, this is system-depended.
+
+That is all. Happy vimming.
+
+--------------------------------------------------------------------------------
+Compatibility note:
+
+This program writen for Python 2.3. But it is already compatible with
+Python 2.2. And for compatibility with Python 2.1 you may do some actions:
+some code need to be comment and some to uncomment.
+
+For compatibility with python 2.1 open this program in vim and execute
+  following command:
+:%s/^\(\s*\)\(.*#<p21c>\)$/\1## \2/|%s/^\(\s*\)##\s\+\(.*#<p21u>\)$/\1\2/|w!
+Be careful, use copy&paste:
+      1) put cursor after the colon and type y$
+      2) Then type : to go into command line and type <C-R>"
+This command comment section using 'yield' statement and import generators
+  feature. Then it is uncomment compatibility blocks: raise instraction in
+  finditer() method and import nested_scopes feature.
+For undoing this changes execute in vim following command:
+:%s/^\(\s*\)\(.*#<p21u>\)$/\1## \2/|%s/^\(\s*\)##\s\+\(.*#<p21c>\)$/\1\2/|w!
+
+
+
+================================================================================
+	class Text						*class-Text*
+
+Text([vim_buffer]) -> <text.Text object>
+
+This class provides simple access to vim buffer from python.  Constractor
+take one optional argument---vim's buffer (default is the current buffer).
+instance = text.Text()       # see `instance' below in examples
+
+Buffer contents store in instance.text attribute in vim internal encodind
+(see 'encoding' option in vim). Because python don't know about what is
+letter and how case convert in many encodings if it is not locale turn on
+(note: many encodings on many systems has no locale for it), we convert
+buffer contents in unicode when it is necessary. But as rule we do it in
+shadow and user don't see it, except we work with regular expressions (see
+below).
+
+--------------------------------------------------------------------------------
+Synchronization and Offset methods:				*synchronization-methods*
+								*offset-methods*
+
+    General synchronization methods: |update_vi2py()|, |update_py2vi()|
+
+    Offset converting methods: |offset2LC()|, |LC2offset()|
+
+................................................................................
+method |LC2offset()|, |class-Text|				*LC2offset()*
+
+LC2offset(line, column) -> int
+
+Get pair (line, column) in vim notation: (1-leader) and return offset
+in python notation (zero-leader).
+|offset-methods|
+
+
+................................................................................
+method |offset2LC()|, |class-Text|				*offset2LC()*
+
+offset2LC(offset) -> tuple
+
+Get offset in python notation (zero-leader) and return pair (line,
+column) in vim notation: (1-leader).
+|offset-methods|
+
+
+................................................................................
+method |update_py2vi()|, |class-Text|				*update_py2vi()*
+
+|update_py2vi()| -> None
+
+write self.text into vim.buffer
+|synchronization-methods|
+
+
+................................................................................
+method |update_vi2py()|, |class-Text|				*update_vi2py()*
+
+update_vi2py([buffer]) -> None
+
+Read information from vim buffer and update some object data:
+self.text, self.buffer, self.newlines and self.encoding. (See class
+documentation for meaning of this data).
+This metod using, for example, in class constractor.
+|synchronization-methods|
+
+
+--------------------------------------------------------------------------------
+String emulation:						*string-methods*
+
+Instance of this class has most of string methods. Some of them (like
+|isdigit()| etc.) work similarly as in the string, but others, which return
+changed string, really return None and modify the buffer line-by-line.
+
+    List of string methods: |count()|, |index()|, |find()|, |rindex()|, |rfind()|,
+        |endswith()|, |statswith()|, |isalnum()|, |isalpha()|, |isdigit()|,
+        |islower()|, |isspace()|, |istitle()|, |isupper()|, |center()|, |rjust()|,
+        |ljust()|, |zfill()|, |rstrip()|, |lstrip()|, |strip()|, |capitalize()|,
+        |lower()|, |swapcase()|, |title()|, |upper()|, |replace()|, |expandtabs()|,
+        |decode()|, |encode()|, |split()|, |splitlines()|
+
+    Non standart string methods: |apply_to_lines()|
+
+................................................................................
+method |apply_to_lines()|, |class-Text|				*apply_to_lines()*
+
+apply_to_lines(func [, line_number or , start, stop [, step]]) -> None
+
+apply FUNC to every (default) lines in buffer or in line by LINE_NUMBER
+or to lines in range from START to STOP by STEP.
+
+NOTE:
+If you need to do some change to whole buffer (like convert all letters
+to upper case, for example) may be more swift is apply your FUNC to
+self.text and then call self.|update_py2vi()| method.
+|string-methods|
+
+
+................................................................................
+method |capitalize()|, |class-Text|				*capitalize()*
+
+capitalize([, line_number or , start, stop [, step]]) -> None
+
+capitalize case in every (default) lines in buffer or in line by 
+LINE_NUMBER or to lines in range from START to STOP by STEP.
+
+See also NOTE in self.|apply_to_lines()| method
+|string-methods|
+
+
+................................................................................
+method |center()|, |class-Text|					*center()*
+
+center(width [, line_number or , start, stop [, step]]) -> None
+
+cetnter every (default) lines in buffer or in line by LINE_NUMBER
+or to lines in range from START to STOP by STEP.
+
+See also NOTE in self.|apply_to_lines()| method
+|string-methods|
+
+
+................................................................................
+method |count()|, |class-Text|					*count()*
+
+count( sub[, start[, end]]) -> int
+
+Return the number of occurrences of substring SUB in buffer[start:end].
+Optional arguments START and END are interpreted as in slice
+notation.
+|string-methods|
+
+
+................................................................................
+method |decode()|, |class-Text|					*decode()*
+
+decode([encoding [, errors]]) -> unicode_object
+
+Decodes the string using the codec registered for self.encoding. ERRORS
+may be given to set a different error handling scheme. The default is
+'strict', meaning that encoding errors raise ValueError. Other possible
+values are 'ignore' and replace'.
+|string-methods|
+
+
+................................................................................
+method |encode()|, |class-Text|					*encode()*
+
+encode([encoding [, errors]]) -> string
+
+Return an encoded version of the string. This method may be use for
+convert from one encoging system into another.  Default encoding is
+self.encoding attribute. errors may be given to set a different error
+handling scheme. The default for errors is 'strict', meaning that
+encoding errors raise a ValueError. Other possible values are 'ignore'
+and 'replace'.
+|string-methods|
+
+
+................................................................................
+method |endswith()|, |class-Text|				*endswith()*
+
+endswith( suffix[, start[, end]]) -> int
+
+Return True if the buffer ends with the specified SUFFIX, otherwise
+return False. With optional START, test beginning at that position.
+With optional END, stop comparing at that position.
+|string-methods|
+
+
+................................................................................
+method |expandtabs()|, |class-Text|				*expandtabs()*
+
+expandtabs([tabsize] [, line_number or , start, stop [, step]])
+        -> None
+
+expandtabs in every (default) lines in buffer or in line by
+LINE_NUMBER or to lines in range from START to STOP by STEP.
+Default TABSIZE = 8.
+
+See also NOTES in self.|apply_to_lines()| method
+|string-methods|
+
+
+................................................................................
+method |find()|, |class-Text|					*find()*
+
+find( sub[, start[, end]]) -> int
+
+Return the lowest index in the buffer where substring SUB is found,
+such that SUB is contained in the range (START, END). Optional
+arguments START and END are interpreted as in slice notation. Return -1
+if sub is not found. 
+|string-methods|
+
+
+................................................................................
+method |index()|, |class-Text|					*index()*
+
+index( sub[, start[, end]]) -> int
+
+Like |find()|, but raise ValueError when the substring is not found.
+|string-methods|
+
+
+................................................................................
+method |isalnum()|, |class-Text|				*isalnum()*
+
+|isalnum()| -> bool
+
+I think it is low usefull, but provide for string compatibility
+|string-methods|
+
+
+................................................................................
+method |isalpha()|, |class-Text|				*isalpha()*
+
+|isalpha()| -> bool
+
+I think it is low usefull, but provide for string compatibility
+|string-methods|
+
+
+................................................................................
+method |isdigit()|, |class-Text|				*isdigit()*
+
+|isdigit()| -> bool
+
+I think it is low usefull, but provide for string compatibility
+|string-methods|
+
+
+................................................................................
+method |islower()|, |class-Text|				*islower()*
+
+|islower()| -> bool
+
+I think it is low usefull, but provide for string compatibility
+|string-methods|
+
+
+................................................................................
+method |isspace()|, |class-Text|				*isspace()*
+
+|isspace()| -> bool
+
+I think it is low usefull, but provide for string compatibility
+|string-methods|
+
+
+................................................................................
+method |istitle()|, |class-Text|				*istitle()*
+
+|istitle()| -> bool
+
+I think it is low usefull, but provide for string compatibility
+|string-methods|
+
+
+................................................................................
+method |isupper()|, |class-Text|				*isupper()*
+
+|isupper()| -> bool
+
+I think it is low usefull, but provide for string compatibility
+|string-methods|
+
+
+................................................................................
+method |ljust()|, |class-Text|					*ljust()*
+
+ljust(width [, line_number or , start, stop [, step]]) -> None
+
+ljust every (default) lines in buffer or in line by LINE_NUMBER
+or to lines in range from START to STOP by STEP.
+
+See also NOTE in self.|apply_to_lines()| method
+|string-methods|
+
+
+................................................................................
+method |lower()|, |class-Text|					*lower()*
+
+lower([, line_number or , start, stop [, step]]) -> None
+
+lower case in every (default) lines in buffer or in line by
+LINE_NUMBER or to lines in range from START to STOP by STEP.
+
+See also NOTE in self.|apply_to_lines()| method
+|string-methods|
+
+
+................................................................................
+method |lstrip()|, |class-Text|					*lstrip()*
+
+lstrip([chars] [, line_number or , start, stop [, step]]) -> None
+
+lstrip every (default) lines in buffer or in line by LINE_NUMBER
+or to lines in range from START to STOP by STEP.
+
+See also NOTE in self.|apply_to_lines()| method
+|string-methods|
+
+
+................................................................................
+method |replace()|, |class-Text|				*replace()*
+
+replace(old, new [, maxsplit] [, line_number or , start, stop [, step]])
+        -> None
+
+replace substring OLD to NEW in every (default) lines in buffer
+or in line by LINE_NUMBER or to lines in range from START to STOP
+by STEP. If MAXSPLIT is given, only first MAXSPLIT occurrences are
+replaced in every lines.
+
+See also NOTE in self.|apply_to_lines()| method
+|string-methods|
+
+
+................................................................................
+method |rfind()|, |class-Text|					*rfind()*
+
+rfind( sub [,start [,end]]) -> int
+
+Return the highest index in the buffer where substring SUB is found,
+such that SUB is contained within range (START, END). Optional
+arguments START and END are interpreted as in slice notation. Return -1
+on failure. 
+|string-methods|
+
+
+................................................................................
+method |rindex()|, |class-Text|					*rindex()*
+
+rindex( sub[, start[, end]]) -> int
+
+Like |rfind()| but raises ValueError when the substring SUB is not
+found.
+|string-methods|
+
+
+................................................................................
+method |rjust()|, |class-Text|					*rjust()*
+
+rjust(width [, line_number or , start, stop [, step]]) -> None
+
+rjust every (default) lines in buffer or in line by LINE_NUMBER
+or to lines in range from START to STOP by STEP.
+
+See also NOTE in self.|apply_to_lines()| method
+|string-methods|
+
+
+................................................................................
+method |rstrip()|, |class-Text|					*rstrip()*
+
+rstrip([chars] [, line_number or , start, stop [, step]]) -> None
+
+rstrip every (default) lines in buffer or in line by LINE_NUMBER
+or to lines in range from START to STOP by STEP.
+
+See also NOTE in self.|apply_to_lines()| method
+|string-methods|
+
+
+................................................................................
+method |split()|, |class-Text|					*split()*
+
+split( [sep [,maxsplit]]) -> list
+
+Return a list of the words in the buffer, using sep as the delimiter
+string. If maxsplit is given, at most maxsplit splits are done. If sep
+is not specified or None, any whitespace string is a separator.
+|string-methods|
+
+
+................................................................................
+method |splitlines()|, |class-Text|				*splitlines()*
+
+splitlines( [keepends]) -> list
+
+Return a list of the lines in the buffer, breaking at line boundaries.
+Line breaks are not included in the resulting list unless keepends is
+given and true. 
+|string-methods|
+
+
+................................................................................
+method |statswith()|, |class-Text|				*statswith()*
+
+startswith( prefix[, start[, end]]) -> int
+
+Return True if the buffer starts with the PREFIX, otherwise return
+False.  With optional START, test string beginning at that position.
+With optional END, stop comparing string at that position.
+|string-methods|
+
+
+................................................................................
+method |strip()|, |class-Text|					*strip()*
+
+strip([chars] [, line_number or , start, stop [, step]]) -> None
+
+strip every (default) lines in buffer or in line by LINE_NUMBER
+or to lines in range from START to STOP by STEP.
+
+See also NOTE in self.|apply_to_lines()| method
+|string-methods|
+
+
+................................................................................
+method |swapcase()|, |class-Text|				*swapcase()*
+
+swapcase([, line_number or , start, stop [, step]]) -> None
+
+toggle case in every (default) lines in buffer or in line by
+LINE_NUMBER or to lines in range from START to STOP by STEP.
+
+See also NOTE in self.|apply_to_lines()| method
+|string-methods|
+
+
+................................................................................
+method |title()|, |class-Text|					*title()*
+
+title([, line_number or , start, stop [, step]]) -> None
+
+case like in title in every (default) lines in buffer or in line by
+LINE_NUMBER or to lines in range from START to STOP by STEP.
+
+See also NOTE in self.|apply_to_lines()| method
+|string-methods|
+
+
+................................................................................
+method |upper()|, |class-Text|					*upper()*
+
+upper([, line_number or , start, stop [, step]]) -> None
+
+upper case in every (default) lines in buffer or in line by 
+LINE_NUMBER or to lines in range from START to STOP by STEP.
+
+See also NOTE in self.|apply_to_lines()| method
+|string-methods|
+
+
+................................................................................
+method |zfill()|, |class-Text|					*zfill()*
+
+zfill(width [, line_number or , start, stop [, step]]) -> None
+
+zfill every (default) lines in buffer or in line by LINE_NUMBER
+or to lines in range from START to STOP by STEP.
+
+See also NOTE in self.|apply_to_lines()| method
+|string-methods|
+
+
+--------------------------------------------------------------------------------
+Sequence emulation:						*sequence-methods*
+
+Instance of this class has a lot of sequence's methods and can properly
+work with a slice. For example:
+string = instance[start:end:step] # return substring
+instance[start:end] = "string"    # record "string" into start:end area
+instance[start:end:step] = list   # new in 1.0.0 but only since python 2.3
+instance += "string"              # append string
+instance *= Int                   # multiplicate buffer
+
+    List of sequence methods: |__setitem__()|, |__delitem__()|, |__getitem__()|,
+        |__len__()|, |__contains__()|, |__iadd__()|, |append()|, |extend()|,
+        |__imul__()|, |insert()|, |remove()|, |reverse()|
+
+................................................................................
+method |__contains__()|, |class-Text|				*__contains__()*
+
+Supporting membership test: 'string' in Text_object -> bool
+|sequence-methods|
+
+
+................................................................................
+method |__delitem__()|, |class-Text|				*__delitem__()*
+
+Supporting del slice operation: del(Text_object[a:b])
+|sequence-methods|
+
+
+................................................................................
+method |__getitem__()|, |class-Text|				*__getitem__()*
+
+Supporting get slice operation: variable = Text_object[a:b]
+|sequence-methods|
+
+
+................................................................................
+method |__iadd__()|, |class-Text|				*__iadd__()*
+
+Supporting  += operator:
+Text_object += 'string' -> None # append the string to the buffer
+Text_object += list     -> None # append list of string line by line
+|sequence-methods|
+
+
+................................................................................
+method |__imul__()|, |class-Text|				*__imul__()*
+
+Supporting  *= operator:
+Text_object *= 0   -> None # delete buffer contains
+Text_object *= 1   -> None # nothing todo
+Text_object *= Int -> None # duplicate buffer contains
+                           # as mach as needed
+|sequence-methods|
+
+
+................................................................................
+method |__len__()|, |class-Text|				*__len__()*
+
+Supporting len() function: len(Text_object) -> int
+|sequence-methods|
+
+
+................................................................................
+method |__setitem__()|, |class-Text|				*__setitem__()*
+
+Supporting set slice operation: Text_object[a:b]='string'
+|sequence-methods|
+
+
+................................................................................
+method |append()|, |class-Text|					*append()*
+
+append(string) -> None
+
+append STRING to the end of buffer
+|sequence-methods|
+
+
+................................................................................
+method |extend()|, |class-Text|					*extend()*
+
+extend(list) -> None
+
+append LIST of strings to the end of buffer
+|sequence-methods|
+
+
+................................................................................
+method |insert()|, |class-Text|					*insert()*
+
+insert(index, other) -> None
+
+Insert OTHER in INDEX position (same as self[INDEX:INDEX] = OTHER)
+|sequence-methods|
+
+
+................................................................................
+method |remove()|, |class-Text|					*remove()*
+
+remove(item) -> None
+
+Same as del self[self.index(item)]
+|sequence-methods|
+
+
+................................................................................
+method |reverse()|, |class-Text|				*reverse()*
+
+reverse([how]) -> None
+
+Reverse buffer. If HOW is 'strings' (this is default) reverse string
+order if 'letters', reverse letters order.
+|sequence-methods|
+
+
+--------------------------------------------------------------------------------
+File emulation:						*file-methods*
+
+Instance of this class has a lot of file-object methods and may be used for
+emulation file-object. For example:
+sys.stdout = instance     # STDOUT redirection
+
+    List of file methods: |isatty()|, |close()|, |flush()|, |tell()|, |seek()|,
+        |truncate()|, |read()|, |readline()|, |readlines()|, |write()|, |writelines()|
+
+    List of file attributes: closed, mode, newlines, name, encoding
+
+................................................................................
+method |close()|, |class-Text|					*close()*
+
+Nothing to do, return None
+|file-methods|
+
+
+................................................................................
+method |flush()|, |class-Text|					*flush()*
+
+Nothing to do, return None
+|file-methods|
+
+
+................................................................................
+method |isatty()|, |class-Text|					*isatty()*
+
+Always False
+|file-methods|
+
+
+................................................................................
+method |read()|, |class-Text|					*read()*
+
+read([size]) -> string
+
+Read at most size bytes from the file. If the size argument is negative
+or omitted, read all data until end of buffer is reached. The bytes are
+returned as a unicode object.
+|file-methods|
+
+
+................................................................................
+method |readline()|, |class-Text|				*readline()*
+
+readline([size]) -> string
+
+Read one entire line from the file. A trailing newline character is
+kept in the string. If the size argument is present and non-negative,
+it is a maximum byte count (including the trailing newline) and an
+incomplete line may be returned.
+|file-methods|
+
+
+................................................................................
+method |readlines()|, |class-Text|				*readlines()*
+
+readlines([sizehint]) -> list
+
+Read until end of buffer using |readline()| and return a list containing
+the lines thus read. If the optional sizehint argument is present,
+instead of reading up to end of buffer, whole lines totalling
+approximately sizehint bytes are read.
+|file-methods|
+
+
+................................................................................
+method |seek()|, |class-Text|					*seek()*
+
+seek(offset[, whence]) -> None
+
+Move to new file position. Argument offset is a byte count. Optional
+argument whence defaults to 0 (offset from start of file, offset should
+be >= 0);  other values are 1 (move relative to current position,
+positive or negative),  and 2 (move relative to end of file, negative)
+|file-methods|
+
+
+................................................................................
+method |tell()|, |class-Text|					*tell()*
+
+|tell()| -> int
+
+return position in the file (byte offset)
+|file-methods|
+
+
+................................................................................
+method |truncate()|, |class-Text|				*truncate()*
+
+truncate([size]) -> None
+
+Truncate the buffer to at most size bytes. Size defaults to the current
+file position, as returned by |tell()|.
+|file-methods|
+
+
+................................................................................
+method |write()|, |class-Text|					*write()*
+
+write(str) -> None
+
+Write a string to the buffer under coursor.
+There is no return value.
+|file-methods|
+
+
+................................................................................
+method |writelines()|, |class-Text|				*writelines()*
+
+writelines(list) -> None
+
+Write a sequence of strings to the file. The sequence can be any
+iterable object producing strings, typically a list of strings. There
+is no return value. (The name is intended to match |readlines()|;
+|writelines()| does not add line separators.)
+|file-methods|
+
+
+--------------------------------------------------------------------------------
+RegExp access:						*RegExp-methods*
+
+For working whith regular expressions class provide re subclass with most
+or regexp functions:
+instance.|re.match()|, instance.|re.search()|, instance.|re.finditer()|,
+instance.|re.sub()| etc.  and addition instance.|re.count()| method, which not
+provide by the re module.
+
+NOTE: class has two different methods: self.|count()| and self.|re.count()|.
+
+NOTE: when this methods called, python convert buffer contains into
+unicode (see above) and make search in it, flag re.U pass to pattern
+automatically (That is recompiled if necessary).
+
+Important:
+But we redefine match object so that return offset as if search made in vim
+internal encoding (this is importatn in multibyte encodings). Moreover,
+methods like |group()| return strings in vim internal encoding, not in
+unicode. But if you need to get original "true" match object, thay stored
+in "mo" attribute. See |NoUniMatchObj|() class documentation.
+
+WARNING: we can't guess the encoding used by your program, therefore we
+don't automatically convert the pattern into unicode. Please do this
+yourself if it is necesary.
+
+    List of RegExp methods: |re.compile()|, |re.search()|, |re.match()|,
+        |re.split()|, |re.findall()|, |re.finditer()|, |re.sub()|, |re.subn()|
+
+    Non standart RegExp methods: |re.count()|
+
+................................................................................
+method |re.compile()|, |class-Text|				*re.compile()*
+
+re.compile(pattern [, flags]) -> RegExp_object
+
+Compile a regular expression pattern into a regular expression object.
+The expression's behaviour can be modified by specifying a FLAGS value.
+Values can be any of standart constants of module re, combined using
+bitwise OR (the | operator). This method always put re.UNICODE to the
+FLAGS.
+
+
+................................................................................
+method |re.count()|, |class-Text|				*re.count()*
+
+re.count(pattern) -> int
+
+Return number of occurences. Note: module re has not this function
+
+
+................................................................................
+method |re.findall()|, |class-Text|				*re.findall()*
+
+re.findall(pattern) -> list
+
+Return a list of all non-overlapping matches of pattern in buffer. If
+one or more groups are present in the pattern, return a list of groups;
+this will be a list of tuples if the pattern has more than one group.
+Empty matches are included in the result unless they touch the
+beginning of another match. 
+
+
+................................................................................
+method |re.finditer()|, |class-Text|				*re.finditer()*
+
+re.finditer(pattern) -> iterator_object
+
+Return an iterator over all non-overlapping matches for the RE pattern
+in string. For each match, the iterator returns an |NoUniMatchObj| object.
+Empty matches are included in the result unless they touch the
+beginning of another match. Not availabel in python 2.1
+
+
+................................................................................
+method |re.match()|, |class-Text|				*re.match()*
+
+re.match(pattern [, flags [, pos [, endpos]]]) -> |NoUniMatchObj_object|
+
+If zero or more characters at the beginning of buffer match this
+regular expression, return a corresponding |NoUniMatchObj| instance. Return
+None if the string does not match the pattern; note that this is
+different from a zero-length match. 
+
+NOTE: If you want to locate a match anywhere in string, use |re.search()|
+instead. 
+
+The optional parameter POS gives an index in the string where
+the search is to start; it defaults to 0. This is not completely
+equivalent to slicing the string; the "^" pattern character matches at
+the real beginning of the string and at positions just after a newline,
+but not necessarily at the index where the search is to start. 
+
+The optional parameter ENDPOS limits how far the string will be
+searched; it will be as if the string is endpos characters long, so
+only the characters from POS to ENDPOS - 1 will be searched for a
+match. If endpos is less than pos, no match will be found.
+
+
+................................................................................
+method |re.search()|, |class-Text|				*re.search()*
+
+re.search(pattern [, flags [, pos [, endpos]]]) -> |NoUniMatchObj_object|
+
+Scan through buffer looking for a location where the regular expression
+pattern produces a match, and return a corresponding |NoUniMatchObj| object
+instance. Return None if no position in the string matches the pattern;
+note that this is different from finding a zero-length match at some
+point in the string. 
+
+
+................................................................................
+method |re.split()|, |class-Text|				*re.split()*
+
+re.split(pattern [, maxsplit]) -> list
+
+Split buffer content by the occurrences of pattern. If capturing
+parentheses are used in pattern, then the text of all groups in the
+pattern are also returned as part of the resulting list. If MAXSPLIT is
+nonzero, at most maxsplit splits occur, and the remainder of the string
+is returned as the final element of the list.
+
+
+................................................................................
+method |re.sub()|, |class-Text|					*re.sub()*
+
+re.sub(pattern, repl [, count]) -> None
+
+Change buffer by replacing the leftmost non-overlapping
+occurrences of PATTERN in buffer by the replacement REPL. REPL can be a string
+or a function; if it is a string, any backslash escapes in it are
+processed. That is, "\n" is converted to a single newline character,
+"\r" is converted to a linefeed, and so forth. Unknown escapes such as
+"\j" are left alone. Backreferences, such as "\6", are replaced with
+the substring matched by group 6 in the PATTERN. For example: 
+
+If REPL is a function, it is called for every non-overlapping
+occurrence of pattern. The function takes a single |NoUniMatchObj| object
+argument, and returns the replacement string. For example: 
+
+The optional argument COUNT is the maximum number of pattern
+occurrences to be replaced; COUNT must be a non-negative integer. If
+omitted or zero, all occurrences will be replaced.
+
+
+................................................................................
+method |re.subn()|, |class-Text|				*re.subn()*
+
+re.subn(pattern, repl [, count]) -> int
+
+Perform the same operation as sub(), but return number of
+substitutions made.
+
+
+--------------------------------------------------------------------------------
+Vim intaraction:						*interactive-methods*
+
+Class provide some methods to interactive actions.
+
+    List of interaction methods: |interactive()|, |replace_i()|
+
+................................................................................
+method |interactive()|, |class-Text|				*interactive()*
+
+interactive([start [, end [, msg [, choices [, default [, type]]]]]
+            [, highlight=group] [, vpos="bot" (or "top")]
+            [, gap=gap]]) -> int
+
+Go to START position, hilight from START to END by GROUP (default = 
+"IncSearch"), and run vim's confirmation dialog. By default START
+and END setups to current position (|tell()| method). Arguments MSG,
+CHOICES, DEFAULT and TYPE pass into vim's confirm() function.
+MSG = "request" by default. See ":help confirm()" in vim editor for
+details. VPOS may be "top" or "bot" (deafult) --- were in window
+show the highlighted text. GAP is number of lines between top border
+of window and highlighted text if VPOS="top" or between bottom border
+of window and highlighted text. By default GAP == 3.
+Return number of choice (start from 1) or 0.
+|interactive-methods|
+
+
+................................................................................
+method |replace_i()|, |class-Text|				*replace_i()*
+
+replace_i([start [, end [, repl_list [, msg]]]]
+          [, highlight=group] [, vpos="bot" (or "top")]
+          [, gap=gap] [, buttons = YES|NO|CANCEL]]) -> bool or raise
+
+REPL_LIST is any sequence of replacements (list of strings, for
+example). BUTTONS is list of button displayed in the dialog. It may be
+bitwise summ of following constanses: YES, NO, OTHER, CANCEL, BREAK.
+Default is YES|NO|CANCEL. Other arguments meaning same as in
+|interactive()| method. Return False if replace rejected, True otherwise.
+Raise CancelDialog if Cancel button selected. Raise BreakDialog if
+Break button selected. Raise OtherDialog if Other button selected
+|interactive-methods|
+
+
+--------------------------------------------------------------------------------
+Exceptions:							*text-exceptions*
+
+instance.exceptions              # Exceptions container: has an attributes:
+instance.exceptions.BreakDialog  # using in |replace_i()| method
+instance.exceptions.CancelDialog # using in |replace_i()| method
+instance.exceptions.OtherDialog  # using in |replace_i()| method
+
+--------------------------------------------------------------------------------
+Buttons:							*text-buttons*
+
+instance.buttons          # Buttons container: has an attributes:
+instance.buttons.YES
+instance.buttons.NO
+instance.buttons.OTHER
+instance.buttons.CANCEL
+instance.buttons.BREAK
+
+--------------------------------------------------------------------------------
+Other data:							*text-attributes*
+
+instance.version          # like sys.version
+instance.version_info     # like sys.version_info
+instance.hexversion       # like sys.hexversion
+instance.vimversion       # version of vim editor, integer
+
+instance.name             # name of buffer in vim
+instance.text             # unicode object which contain buffer contents
+instance.newlines         # EOL string (may be '\r', '\n', or '\r\n')
+instance.encoding         # buffer encoding (vim variable &encoding)
+instance.buffer           # vim.buffer object assotiated with instance
+
+instance.closed           # False (file attribute)
+instance.mode             # 'rb+' (file attribute)
+
+instance.exceptions.BreakDialog  # built in excepton using for handle
+                                 # Cancel button in |replace_i()| method
+================================================================================
+	class |NoUniMatchObj|					*class-NoUniMatchObj*
+								*NoUniMatchObj*
+								*NoUniMatchObj_object*
+
+|NoUniMatchObj|(match_object, encoding [, old|NoUniMatchObj_object|]) ->
+-> |NoUniMatchObj_object|
+
+If we make regexp search in unicode string by means of standart module re,
+it return sometime MATCH_OBJECT, which provide access to many useful
+information. But this is information about unicode string in which we do
+search. For work with vim buffers information about string in vim encoding
+is more useful. So, this class provide object-emulator of standart
+MATCH_OBJECT. When you expect to get a string, you get a string in ENCODING
+not unicode. And when you expect to get address (byte-offset) you get
+address in encoded string too. The last is important if you use multibyte
+encoding especially encoding which may represent various symbol by byte
+various length (utf-8 for example).
+
+MATCH_OBJECT --- true match_object returned by re module.
+ENCODING     --- encoding for convertation
+OLD_ADVANCEDMO_OBJECT --- optional, default None. This is useful for swift
+initialization. If you already do some search in current unicode object by
+current regular expression, some attribute may be copyed from previous
+_ADVANSEDMO_OBJECT. For example, this is useful for finditer() method.
+
+--------------------------------------------------------------------------------
+Data:								*NoUniMatchObj-data*
+
+mo        # true (may be unicode) match object
+encoding  # encoding for convert unicode objects
+lastindex # The integer index of the last matched capturing group, or None
+            if no group was matched at all. This is same as mo.lastindex.
+            (see documentation for module re)
+lastgroup # The name of the last matched capturing group, or None if the
+            group didn't have a name, or if no group was matched at all.
+            This is same as mo.lastgroup. (see documentation for module re)
+re        # The regular expression object whose match() or search() method
+            produced this MatchObject instance. This is same as mo.re.
+string    # The string passed to match() or search(). This is similar as mo.re,
+            but converted into encoding if mo.re is unicode object.
+pos       # The value of pos which was passed to the search() or match()
+            method. This is the index into the string at which the RE
+            engine started looking for a match. This is similar as mo.pos,
+            but corrected if mo.string is unicode object like describe
+            above.
+endpos    # The value of endpos which was passed to the search() or match()
+            method of the RegexObject. This is the index into the string
+            beyond which the RE engine will not go. This is similar as
+            mo.endpos, but corrected if mo.string is unicode object like
+            describe above.
+
+--------------------------------------------------------------------------------
+Methods:								*NoUniMatchObj-methods*
+
+    List of |NoUniMatchObj| methods: |expand()|, |group()|, |groups()|, |groupdict()|,
+        |start()|, |end()|, |span()|
+................................................................................
+method |end()|, |class-NoUniMatchObj|				*end()*
+
+end([group]) -> int
+
+Return the index of the end of the substring matched by GROUP; GROUP
+defaults to zero (meaning the whole matched substring).  Return -1 if
+GROUP exists but did not contribute to the match.
+
+If search made in unicode, return offset like allegedly search made in
+string.
+
+
+................................................................................
+method |expand()|, |class-NoUniMatchObj|			*expand()*
+
+expand(template) -> string
+
+Return the string obtained by doing backslash substitution on the
+template string template, as done by the sub() method. Escapes such as
+"\n" are converted to the appropriate characters, and numeric
+backreferences ("\1", "\2") and named backreferences ("\g<1>",
+"\g<name>") are replaced by the contents of the corresponding group. 
+
+Always return string, not unicode.
+
+
+................................................................................
+method |group()|, |class-NoUniMatchObj|				*group()*
+
+group([group1, ...]) -> string or tuple of strings
+
+Returns one or more subgroups of the match. If there is a single
+argument, the result is a single string; if there are multiple
+arguments, the result is a tuple with one item per argument. Without
+arguments, group1 defaults to zero (the whole match is returned). If a
+groupN argument is zero, the corresponding return value is the entire
+matching string; if it is in the inclusive range [1..99], it is the
+string matching the corresponding parenthesized group. If a group
+number is negative or larger than the number of groups defined in the
+pattern, an IndexError exception is raised. If a group is contained in
+a part of the pattern that did not match, the corresponding result is
+None. If a group is contained in a part of the pattern that matched
+multiple times, the last match is returned.  If the regular expression
+uses the (?P<name>...) syntax, the groupN arguments may also be strings
+identifying groups by their group name. If a string argument is not
+used as a group name in the pattern, an IndexError exception is raised. 
+
+Always return string or tuple of strings, not unicode.
+
+
+................................................................................
+method |groupdict()|, |class-NoUniMatchObj|			*groupdict()*
+
+groupdict([default]) -> dict
+
+Return a dictionary containing all the named subgroups of the match,
+keyed by the subgroup name. The default argument is used for groups
+that did not participate in the match; it defaults to None.
+
+All keys and values are string, not unicode.
+
+
+................................................................................
+method |groups()|, |class-NoUniMatchObj|			*groups()*
+
+groups([defualt]) -> tuple
+
+Return a tuple containing all the subgroups of the match, from 1 up to
+however many groups are in the pattern. The default argument is used
+for groups that did not participate in the match; it defaults to None.
+
+Always return tuple of strings, not of unicode.
+
+
+................................................................................
+method |span()|, |class-NoUniMatchObj|				*span()*
+
+span([group]) -> tuple
+
+For |NoUniMatchObj| object m, return the 2-tuple (m.start(group),
+m.end(group)).  Note that if group did not contribute to the match,
+this is (-1, -1).  Again, group defaults to zero. 
+
+If search made in unicode, return offset like allegedly search made in
+string.
+
+
+................................................................................
+method |start()|, |class-NoUniMatchObj|				*start()*
+
+start([group]) -> int
+
+Return the index of the start of the substring matched by GROUP; GROUP
+defaults to zero (meaning the whole matched substring).  Return -1 if
+GROUP exists but did not contribute to the match.
+
+If search made in unicode, return offset like allegedly search made in
+string.
+
+
+================================================================================
+Change log
+
+
+NOTE: -- FIRST   number changed when I rewrite kernel of program
+      -- SECOND, when I change user interface, adding new "greate" method
+      -- THIRD,  little bugfix, or adding/rewriting self-documentation,
+         or just put some comment in script. Not of all of this little
+         changes need to describe in this section.
+
+1.0.3 -- A lot of bugfix. If user use unknown for python 'encoding', script
+         try to search substitution in some dictionary, and made some
+         warnings and exceptions.
+1.0.2 -- Compatibility with python 2.1 tested and bugfixed, instarction how
+         to turn it on you can see in installation instructions. Rename
+         _AdvancedMO object into |NoUniMatchObj|, because it may be imported
+         into other prgrams. Bugfix in .|group()| method of |NoUniMatchObj|
+         object. More Documentation.
+1.0.1 -- Compatibility with python 2.1 restored, but after some action
+         described in installation guide. A little bugfix in |NoUniMatchObj|()
+         class. Bugfix in compatibility with python 2.2 block. I was tested
+         some important methods in Linux RedHat 8.0 python 2.2 vim 6.1
+1.0.0 -- 1) Change internal representation of text. Now internal object not
+         in unicode. This is not comfortable for vim.
+         2) Killing back compatibility with python 2.1: python 2.2 required;
+         pyhton 2.3 recommended.
+         3) Now setitem supported step argument
+         (text_obj=[start:stop:step]=sequence)
+         4) three new methods adding: |insert()|, |remove()| and |reverse()|.
+         There are no more FIXME mark in program, but have some TODO: no
+         sort() and pop() methods. New class |NoUniMatchObj|() need
+         documentation.
+0.2.1 -- Back compatibility block. Warning! This module now already
+         compilable under python 2.1 and I was test some functions (like
+         Text.|center()|).  But more powerfull test I don't do.
+0.2.0 -- I found greatest bug in my program when they try to work with
+         multibyte encoding. This bug force me to rewrite many methods which
+         use expressly or by implication +byte_offset feature by vim. Now
+         working of this script don't depend off availability of +byte_offset
+         feature in vim. There are two new methods provide for access to real
+         byte-offset in vim: Text.|offset2LC()| and Text.|LC2offset()|
+         NOTE: later, in version 1.0.0, I rewrite this again. :(
+0.1.4 -- new interaction method: |replace_i()|; New containers with exceptions
+         and buttons
+0.1.3 -- now all of _RegExp using unicode flag for compile the pattern adding
+         |decode()| method (just return self.text). __str__() and |encode()|
+         methods now automatically use self.encoding to encode self.text.
+         Writing documentation
+0.1.2 -- improvement |interactive()| method
+0.1.0 -- adding |interactive()| method
+0.0.0 -- initial version: support mutable string and file methods, version
+         info, _RegExp subclass with addition |count()| method. All working
+         good (I'm hope). A lot of known bugs marked in the script by FIXME
+         comment
+
+
+
+
+vim:tw=78:ts=8:ft=help:norl:ro:noma:nowrap:fdm=expr:isk=a-z,A-Z,_,(,),.,48-57,-
+vim:foldexpr=getline(v\:lnum-1)=~'^\\.\\+$'?'>3'\:getline(v\:lnum-1)=~'^-\\+$'?'>2'\:getline(v\:lnum-1)=~'^=\\+$'?'>1'\:getline(v\:lnum)=~'^=\\+$'?'0'\:getline(v\:lnum)=~'^-\\+$'?'1'\:getline(v\:lnum)=~'^\\.\\+$'?'2'\:'='
+vim:foldtext=substitute(v\:folddashes.substitute(getline(v\:foldstart),'\\s*\\*.*',"",""),'^--','\ \ \ \ \ \ ','')
