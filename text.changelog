@@ -8,6 +8,9 @@ NOTE: -- FIRST   number changed when I rewrite kernel of program
          or just put some comment in script. Not of all of this little
          changes need to describe in this section.
 
+1.0.4 -- Some spell check of documentation. Thanks to all helpers.
+         new raise instractions with some help for developers.
+         Bugfix in re.subn() method.
 1.0.3 -- A lot of bugfix. If user use unknown for python 'encoding', script
          try to search substitution in some dictionary, and made some
          warnings and exceptions.

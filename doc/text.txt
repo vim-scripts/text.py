@@ -1,4 +1,4 @@
-*text.txt*	Python script text.py version 1.0.3
+*text.txt*	Python script text.py version 1.0.4
 		for easy access to vim objects
 
 ================================================================================
@@ -15,20 +15,20 @@ sequences and commands to work with folds.
 ================================================================================
                                     Abstract                                    
 
-This is text.py module for easy associate vim buffer to python language.
-Module provide Text-calss, which has access vim buffer contains, and has many
-of string, sequense and file-object methods. You may use slice, may assignment
-to slice of buffer, and you can use step argument in this assignment in
-python 2.3 notation. You can use all of string methods like .|upper()|, .|lower()|,
-.|center()| etc. You can use many of sequence methods like .|append()|, .|extend()|,
-.|reverse()| etc. You can use a lot of binary operators like +=, *=; membership
-test "in" etc. Moreover, Text-instance provide some facilities to work with
-regular expressions including situations when text in buffer is in multibyte
-encoding. Searching take place in unicode, but module provide some new match
-object: "|NoUniMatchObj|". This object has any of original match objects
-attributes but when you expect to get a string, you get a string not unicode.
-And when you expect to get address (byte-offset) you get address in encoded
-string too.
+This is text.py module for easy association of vim buffer to python language.
+Module provides Text-calss, which has access vim buffer contents, and has many
+of string, sequense and file-object methods. You may use slice, may use
+assignment to slice of buffer, and you can use step argument in this assignment
+in python 2.3 notation. You can use all of string methods like .|upper()|,
+.|lower()|, .|center()| etc. You can use many of sequence methods like .|append()|,
+.|extend()|, .|reverse()| etc. You can use a lot of binary operators like +=, *=;
+membership test "in" etc. Moreover, Text-instance provide some facilities to
+work with regular expressions including situations when text in buffer is in
+multibyte encoding. Searching takes place in unicode, but module provides some
+new match object: "|NoUniMatchObj|". This object has all of original match
+objects attributes but when you expect to get a string, you get a string not
+unicode. And when you expect to get address (byte-offset) you get address in
+encoded string too.
 
 Simple example:
 ~~~~~~~~~~~~~~~
@@ -695,8 +695,7 @@ method |read()|, |class-Text|					*read()*
 read([size]) -> string
 
 Read at most size bytes from the file. If the size argument is negative
-or omitted, read all data until end of buffer is reached. The bytes are
-returned as a unicode object.
+or omitted, read all data until end of buffer is reached.
 |file-methods|
 
 
@@ -905,21 +904,26 @@ method |re.sub()|, |class-Text|					*re.sub()*
 
 re.sub(pattern, repl [, count]) -> None
 
-Change buffer by replacing the leftmost non-overlapping
-occurrences of PATTERN in buffer by the replacement REPL. REPL can be a string
-or a function; if it is a string, any backslash escapes in it are
-processed. That is, "\n" is converted to a single newline character,
-"\r" is converted to a linefeed, and so forth. Unknown escapes such as
-"\j" are left alone. Backreferences, such as "\6", are replaced with
-the substring matched by group 6 in the PATTERN. For example: 
+Change buffer by replacing the leftmost non-overlapping occurrences of
+PATTERN in buffer by the replacement REPL. REPL can be a string (in
+unicode) or a function; if it is a string, any backslash escapes in it
+are processed.  That is, "\n" is converted to a single newline
+character, "\r" is converted to a linefeed, and so forth. Unknown
+escapes such as "\j" are left alone. Backreferences, such as "\6",
+are replaced with the substring matched by group 6 in the PATTERN.
 
 If REPL is a function, it is called for every non-overlapping
-occurrence of pattern. The function takes a single |NoUniMatchObj| object
-argument, and returns the replacement string. For example: 
+occurrence of pattern. The function takes a single match object
+argument, and returns the replacement string in unocode.
 
 The optional argument COUNT is the maximum number of pattern
-occurrences to be replaced; COUNT must be a non-negative integer. If
-omitted or zero, all occurrences will be replaced.
+occurrences to be replaced; COUNT must be a non-negative integer.
+If omitted or zero, all occurrences will be replaced.
+
+NOTE 1: really search made in unicode string, your REPL mast return
+unicode or 7-bit string.
+NOTE 2: match object pass to the function REPL, not |NoUniMatchObj|.
+If you need to use |NoUniMatchObj| in function, use |re.finditer()| method.
 
 
 ................................................................................
@@ -1180,6 +1184,9 @@ NOTE: -- FIRST   number changed when I rewrite kernel of program
          or just put some comment in script. Not of all of this little
          changes need to describe in this section.
 
+1.0.4 -- Some spell check of documentation. Thanks to all helpers.
+         new raise instractions with some help for developers.
+         Bugfix in |re.subn()| method.
 1.0.3 -- A lot of bugfix. If user use unknown for python 'encoding', script
          try to search substitution in some dictionary, and made some
          warnings and exceptions.
@@ -1224,6 +1231,28 @@ NOTE: -- FIRST   number changed when I rewrite kernel of program
          info, _RegExp subclass with addition |count()| method. All working
          good (I'm hope). A lot of known bugs marked in the script by FIXME
          comment
+
+
+================================================================================
+License
+
+This program is free software; you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation; either version 1, or (at your option)
+any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program; if not, write to the Free Software
+Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+
+
+Maintainer: Eugene M. Minkovskii
+            emin(at)mccme(point)ru
 
 
 

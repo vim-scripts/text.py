@@ -1,18 +1,37 @@
+# (c) Eugene M. Minkovskii; text.py 07 Dec 2003
+# emin(at)mccme(point)ru
+
+## GPL           #################################{{{1
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 1, or (at your option)
+# any later version.
+
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+## }}}
+
 """\
-This is text.py module for easy associate vim buffer to python language.
-Module provide Text-calss, which has access vim buffer contains, and has many
-of string, sequense and file-object methods. You may use slice, may assignment
-to slice of buffer, and you can use step argument in this assignment in
-python 2.3 notation. You can use all of string methods like .upper(), .lower(),
-.center() etc. You can use many of sequence methods like .append(), .extend(),
-.reverse() etc. You can use a lot of binary operators like +=, *=; membership
-test "in" etc. Moreover, Text-instance provide some facilities to work with
-regular expressions including situations when text in buffer is in multibyte
-encoding. Searching take place in unicode, but module provide some new match
-object: "NoUniMatchObj". This object has any of original match objects
-attributes but when you expect to get a string, you get a string not unicode.
-And when you expect to get address (byte-offset) you get address in encoded
-string too.
+This is text.py module for easy association of vim buffer to python language.
+Module provides Text-calss, which has access vim buffer contents, and has many
+of string, sequense and file-object methods. You may use slice, may use
+assignment to slice of buffer, and you can use step argument in this assignment
+in python 2.3 notation. You can use all of string methods like .upper(),
+.lower(), .center() etc. You can use many of sequence methods like .append(),
+.extend(), .reverse() etc. You can use a lot of binary operators like +=, *=;
+membership test "in" etc. Moreover, Text-instance provide some facilities to
+work with regular expressions including situations when text in buffer is in
+multibyte encoding. Searching takes place in unicode, but module provides some
+new match object: "NoUniMatchObj". This object has all of original match
+objects attributes but when you expect to get a string, you get a string not
+unicode. And when you expect to get address (byte-offset) you get address in
+encoded string too.
 
 Simple example:
 ~~~~~~~~~~~~~~~
@@ -71,6 +90,9 @@ t.apply_to_lines(my_other_function)     # apply my_other_function line by line
 #          or just put some comment in script. Not of all of this little
 #          changes need to describe in this section.
 #
+# 1.0.4 -- Some spell check of documentation. Thanks to all helpers.
+#          new raise instractions with some help for developers.
+#          Bugfix in re.subn() method.
 # 1.0.3 -- A lot of bugfix. If user use unknown for python 'encoding', script
 #          try to search substitution in some dictionary, and made some
 #          warnings and exceptions.
@@ -126,7 +148,7 @@ except ImportError:
     raise ImportError("This module available only from Vim editor")
 if not int(vim.eval('has("byte_offset")')):
     raise "Bad vim version: need +byte_offset feature"
-import re, locale, sys
+import re, locale, sys, traceback
 
 ## }}}
 ## Constants     #################################{{{1
@@ -157,6 +179,8 @@ if sys.hexversion < 0x2030000:          # python 2.2
                 return type(obj) in [types.IntType, types.LongType]
             elif _type == unicode:
                 return type(obj) ==  types.UnicodeType
+            elif _type == str:
+                return type(obj) ==  types.StringType
             elif _type == tuple:
                 return type(obj) ==  types.TupleType
             else:
@@ -166,7 +190,7 @@ if sys.hexversion < 0x2030000:          # python 2.2
 
 ## }}}
 
-__version__ = (1, 0, 3)
+__version__ = (1, 0, 4)
 __all__ = ["Text", "NoUniMatchObj",                               # classes
            "YES", "NO", "OTHER", "CANCEL", "BREAK",               # buttons
            "VERSION", "VERSION_INFO", "HEXVERSION", "VIMVERSION", # versions
@@ -199,6 +223,7 @@ _IS_DIALOG_ENABLED = bool(int(vim.eval("has('dialog_con')")) or\
 
 def _true_offset(u_obj, offset, encoding, prev=(0,0)):
     return len(u_obj[prev[0]:offset].encode(encoding)) + prev[1]
+    # prev - offset in previouse known point: (u_offs,true_offs)
 def _encode_if_u(obj, encoding):
     if isinstance(obj, unicode):
         return obj.encode(encoding)
@@ -455,6 +480,17 @@ class _RegExp(object):
         """
 
         if isinstance(pattern, basestring):
+            if not isinstance(pattern, unicode) and\
+                    re.search(r"[\x80-\xff]",pattern):
+                raise re.sub("(?m)^", " |  ",
+                    "You pass to compile method string which must be convert\n"\
+                    "into unicode.  I can't do this automatically because\n"\
+                    "I can't guess what codec you need: may be it is vim\n"
+                    "'encoding' variable (%s), may be vim 'fileencoding'\n"
+                    "variable (%s), may be your script encoding,\n"
+                    "may be something else..."%(
+                        self.master.encoding,
+                        vim.eval("&fileencoding")))
             return re.compile(pattern, flags|re.U)
         elif pattern.flags == (pattern.flags|re.U):
             return pattern
@@ -569,25 +605,42 @@ class _RegExp(object):
         """\
         re.sub(pattern, repl [, count]) -> None
 
-        Change buffer by replacing the leftmost non-overlapping
-        occurrences of PATTERN in buffer by the replacement REPL. REPL can be a string
-        or a function; if it is a string, any backslash escapes in it are
-        processed. That is, "\\n" is converted to a single newline character,
-        "\\r" is converted to a linefeed, and so forth. Unknown escapes such as
-        "\\j" are left alone. Backreferences, such as "\\6", are replaced with
-        the substring matched by group 6 in the PATTERN. For example: 
+        Change buffer by replacing the leftmost non-overlapping occurrences of
+        PATTERN in buffer by the replacement REPL. REPL can be a string (in
+        unicode) or a function; if it is a string, any backslash escapes in it
+        are processed.  That is, "\\n" is converted to a single newline
+        character, "\\r" is converted to a linefeed, and so forth. Unknown
+        escapes such as "\\j" are left alone. Backreferences, such as "\\6",
+        are replaced with the substring matched by group 6 in the PATTERN.
 
         If REPL is a function, it is called for every non-overlapping
-        occurrence of pattern. The function takes a single NoUniMatchObj object
-        argument, and returns the replacement string. For example: 
+        occurrence of pattern. The function takes a single match object
+        argument, and returns the replacement string in unocode.
 
         The optional argument COUNT is the maximum number of pattern
-        occurrences to be replaced; COUNT must be a non-negative integer. If
-        omitted or zero, all occurrences will be replaced.
+        occurrences to be replaced; COUNT must be a non-negative integer.
+        If omitted or zero, all occurrences will be replaced.
+
+        NOTE 1: really search made in unicode string, your REPL mast return
+        unicode or 7-bit string.
+        NOTE 2: match object pass to the function REPL, not NoUniMatchObj.
+        If you need to use NoUniMatchObj in function, use re.finditer() method.
         """
 
         pattern = self.compile(pattern)
-        result  = re.sub(pattern,repl,self.master.decode(),*count)
+        try:
+            result = re.sub(pattern, repl, self.master.decode(), *count)
+        except UnicodeDecodeError:
+            traceback.print_exc()
+            raise re.sub("(?m)^", " |  ",
+                "You pass to substitute method string or function\n"\
+                "which return string, not unicode.  But substitutions\n"\
+                "really made in unicode and I can't guess what codec\n"\
+                "you need: may be it is vim 'encoding' variable (%s),\n"\
+                "may be vim 'fileencoding' variable (%s),\n"\
+                "may be your script encoding, may be something else..."%(
+                        self.master.encoding,
+                        vim.eval("&fileencoding")))
         self.master.text = result.encode(self.master.encoding)
         self.master.update_py2vi()
 
@@ -599,8 +652,20 @@ class _RegExp(object):
         substitutions made.
         """
 
-        pattern     = self.compile(pattern)
-        (result, n) = re.sub(pattern,repl,self.master.decode(),*count)
+        pattern = self.compile(pattern)
+        try:
+            result, n = re.subn(pattern, repl, self.master.decode(), *count)
+        except UnicodeDecodeError:
+            traceback.print_exc()
+            raise re.sub("(?m)^", " |  ",
+                "You pass to substitute method string or function\n"\
+                "which return string, not unicode.  But substitutions\n"\
+                "really made in unicode and I can't guess what codec\n"\
+                "you need: may be it is vim 'encoding' variable (%s),\n"\
+                "may be vim 'fileencoding' variable (%s),\n"\
+                "may be your script encoding, may be something else..."%(
+                        self.master.encoding,
+                        vim.eval("&fileencoding")))
         self.master.text = result.encode(self.master.encoding)
         self.master.update_py2vi()
         return n
@@ -803,15 +868,15 @@ class Text(object):
                     "ucs-2"   : "utf-8",            # FIXME is it right?
                     "ucs-2le" : "unicode-internal"  # FIXME is it right?
                     }[encoding]
-                _print_warning(
+                _print_warning(re.sub("(?m)^", " |  ",
                     "Warning: I have selected python codec '%s'\n"\
                     "but I don't know am I right. Report me about problems.\n"
                     "    Note: script version is:\n%s"%(encoding,
                             re.sub(
-                                "(?m)^", r"    ", self.version
-                                )))
+                                "(?m)^", r">>> ", self.version
+                                ))))
             except KyeError:
-                raise LookupError(
+                raise LookupError(re.sub("(?m)^", " |  ",
                     "\ntext.py module not provided encoding scheme '%s'\n"\
                     "to avoid this problem there are two ways:\n"\
                     "1) may be python know this encoding under another name\n"\
@@ -819,8 +884,8 @@ class Text(object):
                     "Please report to maintainer about this bug.\n"\
                     "    Note: script version is:\n%s"%(encoding,
                         re.sub(
-                            "(?m)^", r"    ", self.version
-                            )))
+                            "(?m)^", r">>> ", self.version
+                            ))))
         self.text     = newlines.join(buffer)
         self.buffer   = buffer
         self.newlines = newlines
@@ -910,11 +975,12 @@ class Text(object):
         if line_b < line_e:
             line_content = vim.eval("getline(%i)"%line_e)
         elif line_b > line_e:
-            raise "\nThis should not be\n"\
+            raise re.sub("(?m)^", " |  ",
+                    "\nThis should not be\n"\
                     "Please report to maintainer about this bug.\n"\
                     "    Note: script version is:\n%s"%re.sub(
-                            r"(?m)^", "    ", self.version
-                            )
+                            r"(?m)^", ">>> ", self.version
+                            ))
         right = line_content[col_e-1:]
         # change internal representation
         self.text = self.text[:start]+value+self.text[stop:]
@@ -1601,8 +1667,7 @@ class Text(object):
         read([size]) -> string
 
         Read at most size bytes from the file. If the size argument is negative
-        or omitted, read all data until end of buffer is reached. The bytes are
-        returned as a unicode object.
+        or omitted, read all data until end of buffer is reached.
         <file-methods>
         """
 
@@ -1805,9 +1870,9 @@ class Text(object):
             choice = re.search(r"(?:.*\n){%i}&?(.*)"%(choice-1),choices).group(1)
             if   choice == "Yes": self[start:end] = rep_list[0]; return True
             elif choice == "No":     return False
-            elif choice == "Other":  raise OtherDialog
-            elif choice == "Cancel": raise CancelDialog
-            elif choice == "Break":  raise BreakDialog
+            elif choice == "Other":  raise  OtherDialog
+            elif choice == "Cancel": raise  CancelDialog
+            elif choice == "Break":  raise  BreakDialog
 
     ## }}}
 ## }}}
